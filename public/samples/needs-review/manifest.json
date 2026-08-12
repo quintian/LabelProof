@@ -1,0 +1,26 @@
+{
+  "id": "needs-review",
+  "name": "Unreadable warning",
+  "intendedOutcome": "needs_review",
+  "description": "The back-label warning is intentionally blurred to require human review.",
+  "synthetic": true,
+  "application": "application.pdf",
+  "labels": [
+    "front-label.jpg",
+    "back-label.jpg"
+  ],
+  "expected": {
+    "beverageCategory": "distilled_spirits",
+    "brandName": "CIVIC OAK",
+    "fancifulName": "FOUNDERS RESERVE",
+    "classType": "Kentucky Straight Bourbon Whiskey",
+    "alcoholByVolume": 45,
+    "proof": 90,
+    "netContents": {
+      "value": 750,
+      "unit": "mL"
+    },
+    "governmentWarningHeading": "GOVERNMENT WARNING:",
+    "governmentWarningBody": "(1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems."
+  }
+}

@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Local tooling
+.tools/
+
+# Environment files
+.env*
+!.env.example
+
+# Test output
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Local benchmark output
+artifacts/
+
+# Editor and OS files
+.DS_Store
+*.log
