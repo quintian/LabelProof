@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { DocumentExtraction } from "@/lib/contracts/extraction";
 import type {
@@ -49,7 +49,7 @@ const preparedSamples: PreparedSample[] = [
   },
   {
     id: "abv-mismatch",
-    title: "Alcohol-content mismatch",
+    title: "Alcohol content mismatch",
     description: "The alcohol content differs between the two documents.",
     application: { path: "/samples/abv-mismatch/application.pdf", name: "civic-oak-application.pdf", type: "application/pdf" },
     front: { path: "/samples/abv-mismatch/front-label.jpg", name: "civic-oak-abv-mismatch-front.jpg", type: "image/jpeg" },
@@ -57,7 +57,7 @@ const preparedSamples: PreparedSample[] = [
   },
   {
     id: "warning-mismatch",
-    title: "Warning-text mismatch",
+    title: "Warning text mismatch",
     description: "The government warning contains changed wording.",
     application: { path: "/samples/warning-mismatch/application.pdf", name: "civic-oak-application.pdf", type: "application/pdf" },
     front: { path: "/samples/warning-mismatch/front-label.jpg", name: "civic-oak-front-label.jpg", type: "image/jpeg" },
@@ -65,7 +65,7 @@ const preparedSamples: PreparedSample[] = [
   },
   {
     id: "needs-review",
-    title: "Unreadable label",
+    title: "Unreadable warning",
     description: "The warning is too blurry for a confident comparison.",
     application: { path: "/samples/needs-review/application.pdf", name: "civic-oak-application.pdf", type: "application/pdf" },
     front: { path: "/samples/needs-review/front-label.jpg", name: "civic-oak-front-label.jpg", type: "image/jpeg" },
@@ -101,46 +101,34 @@ function statusLabel(status: VerificationStatus) {
   return "Review";
 }
 
-function formatBytes(bytes: number) {
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function ArrowIcon({ direction = "right" }: { direction?: "left" | "right" }) {
+function OwlGuide({
+  message,
+  compact = false,
+  success = false,
+  showBubble = true,
+}: {
+  message: string;
+  compact?: boolean;
+  success?: boolean;
+  showBubble?: boolean;
+}) {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" data-direction={direction}>
-      <path d="M5 12h14M14 7l5 5-5 5" />
-    </svg>
-  );
-}
-
-function UploadIcon({ kind }: { kind: "application" | "label" }) {
-  return (
-    <svg viewBox="0 0 32 32" aria-hidden="true">
-      {kind === "application" ? (
-        <><path d="M9 4h9l5 5v19H9V4Z" /><path d="M18 4v6h5M12 16h8M12 21h8" /></>
+    <div className="owl-guide" data-compact={compact || undefined} data-success={success || undefined}>
+      {showBubble ? <div className="owl-bubble" role="status">{message}</div> : null}
+      {compact ? (
+        <Image src="/owl.png" alt="LabelProof owl guide" width={116} height={116} priority />
       ) : (
-        <><rect x="5" y="7" width="22" height="19" rx="3" /><circle cx="12" cy="14" r="2" /><path d="m8 23 6-6 4 4 3-3 3 5" /></>
+        <video
+          key={success ? "success" : "pointing"}
+          autoPlay
+          muted
+          playsInline
+          loop={success}
+          aria-label="Animated LabelProof owl guide"
+        >
+          <source src={success ? "/success-owl.mp4" : "/pointing-owl.mp4"} type="video/mp4" />
+        </video>
       )}
-    </svg>
-  );
-}
-
-function OwlGuide({ message, compact = false }: { message: string; compact?: boolean }) {
-  return (
-    <div className="owl-guide" data-compact={compact || undefined}>
-      <div className="owl-bubble" role="status">{message}</div>
-      <Image src="/owl.png" alt="LabelProof owl guide" width={compact ? 116 : 170} height={compact ? 116 : 170} priority />
-    </div>
-  );
-}
-
-function FileBadge({ file, onRemove }: { file: LocalFile; onRemove: () => void }) {
-  return (
-    <div className="file-badge">
-      <span aria-hidden="true">✓</span>
-      <div><strong>{file.name}</strong><small>{formatBytes(file.size)}</small></div>
-      <button type="button" onClick={onRemove} aria-label={`Remove ${file.name}`}>×</button>
     </div>
   );
 }
@@ -243,21 +231,18 @@ export function ReviewWorkspace() {
   const [analysisState, setAnalysisState] = useState<AnalysisState>("idle");
   const [analysisResult, setAnalysisResult] = useState<AnalysisResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [showGuideBubble, setShowGuideBubble] = useState(true);
   const touchStartX = useRef<number | null>(null);
   const resultTopRef = useRef<HTMLDivElement>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const sample = preparedSamples[sampleIndex];
-  const combinedBytes = useMemo(
-    () => (application?.size ?? 0) + (frontLabel?.size ?? 0) + additionalLabels.reduce((sum, file) => sum + file.size, 0),
-    [application, frontLabel, additionalLabels],
-  );
   const ready = application !== null && frontLabel !== null;
-  const owlMessage = !application
-    ? "Upload application"
-    : !frontLabel
-      ? "Application received! Now upload label"
-      : "All set! Compare documents";
+  const owlMessage = ready
+    ? selectedSample
+      ? "Sample ready! Click Check Documents"
+      : "Upload successful! Click Check Documents"
+    : "Try a sample or upload documents";
 
   useEffect(() => {
     if (analysisState === "complete") {
@@ -284,7 +269,7 @@ export function ReviewWorkspace() {
     setAnalysisResult(null);
     setAnalysisState("idle");
     setError(null);
-    setMessage(null);
+    setShowGuideBubble(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -307,22 +292,22 @@ export function ReviewWorkspace() {
     return { name: file.name, size: file.size, sample: true, file, previewUrl: asset.path };
   }
 
-  async function chooseSample() {
+  async function chooseSample(chosenSample: PreparedSample = sample) {
     setSampleLoading(true);
     setError(null);
-    setMessage(null);
+    setShowGuideBubble(false);
     try {
       const [sampleApplication, sampleFront, ...sampleAdditional] = await Promise.all([
-        loadSampleFile(sample.application),
-        loadSampleFile(sample.front),
-        ...sample.additional.map(loadSampleFile),
+        loadSampleFile(chosenSample.application),
+        loadSampleFile(chosenSample.front),
+        ...chosenSample.additional.map(loadSampleFile),
       ]);
       clearFiles();
       setApplication(sampleApplication);
       setFrontLabel(sampleFront);
       setAdditionalLabels(sampleAdditional);
-      setSelectedSample(sample.id);
-      setMessage(`${sample.title} is ready.`);
+      setSelectedSample(chosenSample.id);
+      setShowGuideBubble(true);
     } catch (sampleError) {
       setError(sampleError instanceof Error ? sampleError.message : "This sample could not be loaded.");
     } finally {
@@ -330,43 +315,45 @@ export function ReviewWorkspace() {
     }
   }
 
-  function setApplicationFile(file: File | undefined) {
-    if (!file) return;
-    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-      setError("Please choose a PDF application.");
-      return;
-    }
-    if (file.size + (frontLabel?.size ?? 0) + additionalLabels.reduce((sum, item) => sum + item.size, 0) > MAX_COMBINED_BYTES) {
-      setError("Please keep all files under 3 MB total.");
-      return;
-    }
-    releasePreview(application);
-    setApplication({ name: file.name, size: file.size, file, previewUrl: URL.createObjectURL(file) });
-    setSelectedSample(null);
-    setError(null);
-    setMessage("Application received!");
-  }
-
-  function setLabelFiles(files: FileList | null) {
+  function uploadDocuments(files: FileList | null) {
     if (!files?.length) return;
-    const chosen = Array.from(files).slice(0, 3);
-    if (chosen.some((file) => !["image/jpeg", "image/png"].includes(file.type))) {
-      setError("Please choose PNG or JPEG label images.");
+    setShowGuideBubble(false);
+    const selected = Array.from(files);
+    const pdf = selected.find((file) => file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"));
+    const images = selected.filter((file) => ["image/jpeg", "image/png"].includes(file.type)).slice(0, 3);
+
+    if (!pdf && images.length === 0) {
+      setError("Choose a PDF application and at least one PNG or JPEG label.");
       return;
     }
-    const total = (application?.size ?? 0) + chosen.reduce((sum, file) => sum + file.size, 0);
-    if (total > MAX_COMBINED_BYTES) {
+
+    const nextApplication = pdf
+      ? { name: pdf.name, size: pdf.size, file: pdf, previewUrl: URL.createObjectURL(pdf) }
+      : application;
+    const nextLabels = images.map((file) => ({ name: file.name, size: file.size, file, previewUrl: URL.createObjectURL(file) }));
+    const nextTotal = (nextApplication?.size ?? 0) + (nextLabels.length ? nextLabels.reduce((sum, file) => sum + file.size, 0) : frontLabel?.size ?? 0);
+    if (nextTotal > MAX_COMBINED_BYTES) {
+      if (pdf) URL.revokeObjectURL(nextApplication?.previewUrl ?? "");
+      nextLabels.forEach((file) => URL.revokeObjectURL(file.previewUrl));
       setError("Please keep all files under 3 MB total.");
       return;
     }
-    releasePreview(frontLabel);
-    additionalLabels.forEach(releasePreview);
-    const mapped = chosen.map((file) => ({ name: file.name, size: file.size, file, previewUrl: URL.createObjectURL(file) }));
-    setFrontLabel(mapped[0]);
-    setAdditionalLabels(mapped.slice(1));
+
+    if (pdf) {
+      releasePreview(application);
+      setApplication(nextApplication);
+    }
+    if (nextLabels.length) {
+      releasePreview(frontLabel);
+      additionalLabels.forEach(releasePreview);
+      setFrontLabel(nextLabels[0]);
+      setAdditionalLabels(nextLabels.slice(1));
+    }
     setSelectedSample(null);
     setError(null);
-    setMessage("Label artwork received!");
+    if ((nextApplication !== null) && (nextLabels.length > 0 || frontLabel !== null)) {
+      setShowGuideBubble(true);
+    }
   }
 
   async function analyzeLabel() {
@@ -380,7 +367,6 @@ export function ReviewWorkspace() {
     const timeout = window.setTimeout(() => controller.abort(), 32_000);
     setAnalysisState("analyzing");
     setError(null);
-    setMessage(null);
     try {
       const response = await fetch("/api/analyze", { method: "POST", body: formData, signal: controller.signal });
       const payload = await response.json();
@@ -403,6 +389,12 @@ export function ReviewWorkspace() {
     return <div ref={resultTopRef}><ResultScreen response={analysisResult} onReset={resetReview} /></div>;
   }
 
+  const wheelItems = preparedSamples.map((item, index) => {
+    const offset = (index - sampleIndex + preparedSamples.length) % preparedSamples.length;
+    return { item, index, offset: offset > 1 ? offset - preparedSamples.length : offset };
+  });
+  const liquidLevel = ready ? 92 : application || frontLabel ? 48 : 0;
+
   return (
     <div className="submit-page">
       <header className="minimal-bar">
@@ -410,75 +402,57 @@ export function ReviewWorkspace() {
         <small>Alcohol label comparison</small>
       </header>
 
-      <main className="submit-main">
-        <section className="sample-section" aria-labelledby="sample-title">
-          <OwlGuide message="Try a sample" />
-          <div
-            className="sample-carousel"
-            onTouchStart={(event) => { touchStartX.current = event.touches[0].clientX; }}
-            onTouchEnd={handleTouchEnd}
-          >
-            <button className="carousel-arrow carousel-arrow--left" type="button" onClick={() => showSample(sampleIndex - 1)} aria-label="Previous sample"><ArrowIcon direction="left" /></button>
-            <div className="sample-slide" key={sample.id}>
-              <div className="sample-art" aria-hidden="true">
-                <Image src={sample.front.path} alt="" width={126} height={170} />
-                <Image src={sample.additional[0].path} alt="" width={108} height={146} />
-              </div>
-              <div className="sample-copy">
-                <small>Sample {sampleIndex + 1} of {preparedSamples.length}</small>
-                <h1 id="sample-title">{sample.title}</h1>
-                <p>{sample.description}</p>
-                <button className="sample-use" type="button" onClick={chooseSample} disabled={sampleLoading}>
-                  {sampleLoading ? "Loading…" : selectedSample === sample.id ? "Sample ready ✓" : "Use this sample"}
-                </button>
-              </div>
-            </div>
-            <button className="carousel-arrow carousel-arrow--right" type="button" onClick={() => showSample(sampleIndex + 1)} aria-label="Next sample"><ArrowIcon /></button>
-            <div className="carousel-dots" aria-label="Choose a sample">
-              {preparedSamples.map((item, index) => <button key={item.id} type="button" aria-label={`Show ${item.title}`} aria-current={sampleIndex === index ? "true" : undefined} onClick={() => showSample(index)} />)}
-            </div>
+      <main className="submit-main" data-ready={ready || undefined}>
+        <aside className="page-one-owl">
+          <OwlGuide message={owlMessage} success={ready} showBubble={showGuideBubble} />
+        </aside>
+
+        <section
+          className="wheel-window"
+          aria-label="Prepared sample tests"
+          onMouseMove={(event) => {
+            const bounds = event.currentTarget.getBoundingClientRect();
+            const position = Math.min(Math.max(event.clientX - bounds.left, 0), bounds.width - 1);
+            const nextIndex = Math.floor((position / bounds.width) * preparedSamples.length);
+            if (nextIndex !== sampleIndex) showSample(nextIndex);
+          }}
+          onTouchStart={(event) => { touchStartX.current = event.touches[0].clientX; }}
+          onTouchEnd={handleTouchEnd}
+        >
+          <div className="sample-wheel" aria-live="polite">
+            {wheelItems.map(({ item, index, offset }) => (
+              <button
+                key={item.id}
+                className="wheel-card"
+                data-slot={offset}
+                data-active={offset === 0 || undefined}
+                data-loaded={selectedSample === item.id || undefined}
+                onFocus={() => showSample(index)}
+                onClick={() => { showSample(index); chooseSample(item); }}
+                disabled={sampleLoading}
+                aria-label={`Use ${item.title} sample`}
+              >
+                <Image src={item.front.path} alt="" fill sizes="150px" unoptimized />
+                <span>{item.title}</span>
+              </button>
+            ))}
+          </div>
+          <div className="wheel-dots" aria-label="Sample position">
+            {preparedSamples.map((item, index) => <button key={item.id} type="button" aria-label={`Show ${item.title}`} aria-current={sampleIndex === index ? "true" : undefined} onClick={() => showSample(index)} />)}
           </div>
         </section>
 
-        <section className="upload-panel" aria-labelledby="upload-title">
-          <div className="upload-guide"><OwlGuide message={owlMessage} /></div>
-          <div className="upload-content">
-            <h2 id="upload-title">Compare your documents</h2>
-            <div className="upload-targets">
-              <div className="upload-target" data-ready={application ? true : undefined}>
-                {application ? (
-                  <FileBadge file={application} onRemove={() => { releasePreview(application); setApplication(null); setSelectedSample(null); setMessage(null); }} />
-                ) : (
-                  <label>
-                    <UploadIcon kind="application" />
-                    <strong>Application</strong>
-                    <span>Choose PDF</span>
-                    <input type="file" accept="application/pdf,.pdf" onChange={(event) => setApplicationFile(event.target.files?.[0])} />
-                  </label>
-                )}
-              </div>
-              <div className="upload-target" data-ready={frontLabel ? true : undefined}>
-                {frontLabel ? (
-                  <div className="label-files">
-                    <FileBadge file={frontLabel} onRemove={() => { releasePreview(frontLabel); setFrontLabel(null); setSelectedSample(null); setMessage(null); }} />
-                    {additionalLabels.map((file, index) => <FileBadge key={`${file.name}-${index}`} file={file} onRemove={() => { releasePreview(file); setAdditionalLabels((current) => current.filter((_, itemIndex) => itemIndex !== index)); setSelectedSample(null); }} />)}
-                  </div>
-                ) : (
-                  <label>
-                    <UploadIcon kind="label" />
-                    <strong>Label artwork</strong>
-                    <span>Choose PNG or JPEG</span>
-                    <input type="file" multiple accept="image/png,image/jpeg,.png,.jpg,.jpeg" onChange={(event) => setLabelFiles(event.target.files)} />
-                  </label>
-                )}
-              </div>
-            </div>
-            <div className="upload-feedback" aria-live="polite">
-              {error ? <span className="upload-error">{error}</span> : message ? <span className="upload-success">✓ {message}</span> : <span>{formatBytes(combinedBytes)} of 3 MB</span>}
-            </div>
-            <button className="compare-button" type="button" disabled={!ready || analysisState === "analyzing"} onClick={analyzeLabel}>
-              {analysisState === "analyzing" ? <><span className="compare-spinner" /> Comparing documents…</> : <>Compare documents <ArrowIcon /></>}
+        <section className="upload-window" aria-label="Upload and compare documents">
+          <div className="upload-vessel" aria-label={ready ? "Documents uploaded" : "Document upload progress"}>
+            <div className="vessel-water" style={{ height: `${liquidLevel}%` }} />
+            <div className="vessel-glow" />
+          </div>
+          <div className="upload-action">
+            <input ref={uploadInputRef} className="hidden-upload" type="file" multiple accept="application/pdf,.pdf,image/png,image/jpeg,.png,.jpg,.jpeg" onChange={(event) => uploadDocuments(event.target.files)} />
+            <button className="upload-or-check" type="button" disabled={analysisState === "analyzing" || sampleLoading} onClick={() => ready ? analyzeLabel() : uploadInputRef.current?.click()}>
+              {analysisState === "analyzing" ? <><span className="compare-spinner" /> Checking…</> : ready ? <>Check<br />Documents</> : <>Upload<br />Documents</>}
             </button>
+            {error ? <span className="upload-error upload-error--compact" role="alert">{error}</span> : null}
           </div>
         </section>
       </main>
