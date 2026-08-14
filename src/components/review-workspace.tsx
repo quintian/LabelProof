@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { DocumentExtraction } from "@/lib/contracts/extraction";
 import type {
@@ -36,7 +36,7 @@ type AnalysisResponse = {
 };
 
 type ReviewerDecision = "approve" | "disapprove" | "manual_review";
-type AnalysisState = "idle" | "analyzing" | "complete";
+type AnalysisState = "idle" | "analyzing" | "complete" | "error";
 
 const preparedSamples: PreparedSample[] = [
   {
@@ -83,16 +83,10 @@ const decisionOptions: Array<{
   { value: "manual_review", label: "Manual Review", icon: "?" },
 ];
 
-function recommendedDecision(status: VerificationStatus): ReviewerDecision {
-  if (status === "pass") return "approve";
-  if (status === "mismatch") return "disapprove";
-  return "manual_review";
-}
-
 function machineStatus(status: VerificationStatus) {
-  if (status === "pass") return "MATCHED";
-  if (status === "mismatch") return "MISMATCH";
-  return "NEEDS REVIEW";
+  if (status === "pass") return "Matched";
+  if (status === "mismatch") return "Unmatched";
+  return "Needs Review";
 }
 
 function statusLabel(status: VerificationStatus) {
@@ -156,68 +150,89 @@ function VerificationDetails({ fields }: { fields: FieldResult[] }) {
   );
 }
 
-function ResultScreen({ response, onReset }: { response: AnalysisResponse; onReset: () => void }) {
-  const status = response.verification.overallStatus;
-  const recommendation = recommendedDecision(status);
+function ResultScreen({
+  response,
+  analysisState,
+  onReset,
+}: {
+  response: AnalysisResponse | null;
+  analysisState: AnalysisState;
+  onReset: () => void;
+}) {
+  const status = response?.verification.overallStatus;
   const [showDetails, setShowDetails] = useState(false);
   const [decision, setDecision] = useState<ReviewerDecision | null>(null);
-  const targetIndex = decisionOptions.findIndex((option) => option.value === recommendation);
-  const targetX = [150, 450, 750][targetIndex];
+  const [resultRevealed, setResultRevealed] = useState(false);
+  const hasDecision = decision !== null;
+  const resultReady = response !== null && resultRevealed;
 
   return (
-    <main className="result-page">
-      <div className="minimal-bar">
-        <a className="simple-logo" href="#" onClick={(event) => { event.preventDefault(); onReset(); }}>
-          <span>LP</span><strong>LabelProof</strong>
-        </a>
-        <button type="button" onClick={onReset}>Compare another label</button>
-      </div>
-
-      <section className="machine-card" data-status={status} aria-labelledby="machine-result-title">
-        <p>Comparison result</p>
-        <div className="machine-status-icon" aria-hidden="true">{status === "pass" ? "✓" : status === "mismatch" ? "×" : "?"}</div>
-        <h1 id="machine-result-title">{machineStatus(status)}</h1>
-        <button className="details-toggle" type="button" onClick={() => setShowDetails((current) => !current)} aria-expanded={showDetails}>
-          {showDetails ? "Hide verification details" : "View verification details"}
-          <span aria-hidden="true">{showDetails ? "−" : "+"}</span>
-        </button>
-        {showDetails ? <VerificationDetails fields={response.verification.fields} /> : null}
-      </section>
-
-      <section className="routing-card" aria-labelledby="routing-title">
-        <h2 id="routing-title">Choose where this application goes</h2>
-        <div className="routing-visual" data-target={recommendation}>
-          <OwlGuide message="Make a decision" compact />
-          <svg viewBox="0 0 900 110" preserveAspectRatio="none" aria-hidden="true">
-            <path d={`M450 0 V36 Q450 64 ${targetX} 105`} pathLength="1" />
-          </svg>
+    <div className="result-shell">
+      <main className="result-page">
+        <div className="minimal-bar">
+          <a className="simple-logo" href="#" onClick={(event) => { event.preventDefault(); onReset(); }}>
+            <span>LP</span><strong>LabelProof</strong>
+          </a>
+          <button type="button" onClick={onReset}>Compare another label</button>
         </div>
-        <div className="decision-grid">
-          {decisionOptions.map((option) => {
-            const isRecommended = option.value === recommendation;
-            const isSelected = option.value === decision;
-            return (
-              <button
-                key={option.value}
-                type="button"
-                className="decision-choice"
-                data-recommended={isRecommended || undefined}
-                data-selected={isSelected || undefined}
-                aria-pressed={isSelected}
-                onClick={() => setDecision(option.value)}
-              >
-                {isRecommended ? <small>Recommended</small> : <small>&nbsp;</small>}
-                <span aria-hidden="true">{option.icon}</span>
-                <strong>{option.label}</strong>
+
+        <div className="result-main">
+          <aside className="result-owl">
+            {resultReady ? (
+              <OwlGuide
+                message={hasDecision ? "Success!" : "Results are here. Please make a decision."}
+                success={hasDecision}
+              />
+            ) : null}
+          </aside>
+
+          <section className="result-machine-window" data-status={status} aria-labelledby={resultReady ? "machine-result-title" : undefined}>
+            <div className="result-stage">
+              <div className="document-crossing" aria-hidden="true">
+                <video
+                  autoPlay
+                  muted
+                  playsInline
+                  loop={!response}
+                  onEnded={() => { if (response) setResultRevealed(true); }}
+                >
+                  <source src="/document-crossing-transparent.webm" type="video/webm" />
+                </video>
+              </div>
+              {resultReady && status ? <h1 id="machine-result-title" className="result-status-word">{machineStatus(status)}</h1> : null}
+            </div>
+            {resultReady ? (
+              <button className="details-toggle" type="button" onClick={() => setShowDetails((current) => !current)} aria-expanded={showDetails}>
+                {showDetails ? "Hide Verification Details" : "View Verification Details"}
+                <span aria-hidden="true">{showDetails ? "−" : "+"}</span>
               </button>
-            );
-          })}
+            ) : <div className="details-placeholder" aria-label={analysisState === "analyzing" ? "Comparing documents" : "Preparing comparison"} />}
+            {showDetails && response ? <VerificationDetails fields={response.verification.fields} /> : null}
+          </section>
+
+          <section className="result-routing-window" aria-label="Routing decision">
+            <div className="decision-grid">
+              {decisionOptions.map((option) => {
+                const isSelected = option.value === decision;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className="decision-choice"
+                    data-selected={isSelected || undefined}
+                    aria-pressed={isSelected}
+                    disabled={!resultReady}
+                    onClick={() => setDecision(option.value)}
+                  >
+                    {option.value === "manual_review" ? <>Manual<br />Review</> : option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
         </div>
-        <div className="decision-feedback" aria-live="polite">
-          {decision ? <><span>✓</span> {decisionOptions.find((option) => option.value === decision)?.label} selected</> : "Select one choice to continue"}
-        </div>
-      </section>
-    </main>
+      </main>
+    </div>
   );
 }
 
@@ -230,11 +245,15 @@ export function ReviewWorkspace() {
   const [sampleLoading, setSampleLoading] = useState(false);
   const [analysisState, setAnalysisState] = useState<AnalysisState>("idle");
   const [analysisResult, setAnalysisResult] = useState<AnalysisResponse | null>(null);
+  const [showResultPage, setShowResultPage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showGuideBubble, setShowGuideBubble] = useState(true);
   const touchStartX = useRef<number | null>(null);
+  const suppressSampleClickRef = useRef(false);
   const resultTopRef = useRef<HTMLDivElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
+  const analysisGenerationRef = useRef(0);
+  const analysisInFlightForRef = useRef<number | null>(null);
 
   const sample = preparedSamples[sampleIndex];
   const ready = application !== null && frontLabel !== null;
@@ -245,10 +264,10 @@ export function ReviewWorkspace() {
     : "Try a sample or upload documents";
 
   useEffect(() => {
-    if (analysisState === "complete") {
+    if (showResultPage) {
       window.setTimeout(() => resultTopRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
     }
-  }, [analysisState]);
+  }, [showResultPage]);
 
   function releasePreview(file: LocalFile | null) {
     if (file?.previewUrl && !file.sample) URL.revokeObjectURL(file.previewUrl);
@@ -264,10 +283,13 @@ export function ReviewWorkspace() {
   }
 
   function resetReview() {
+    analysisGenerationRef.current += 1;
+    analysisInFlightForRef.current = null;
     clearFiles();
     setSelectedSample(null);
     setAnalysisResult(null);
     setAnalysisState("idle");
+    setShowResultPage(false);
     setError(null);
     setShowGuideBubble(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -280,8 +302,25 @@ export function ReviewWorkspace() {
   function handleTouchEnd(event: React.TouchEvent) {
     if (touchStartX.current === null) return;
     const distance = event.changedTouches[0].clientX - touchStartX.current;
-    if (Math.abs(distance) > 45) showSample(sampleIndex + (distance < 0 ? 1 : -1));
+    if (Math.abs(distance) > 45) {
+      suppressSampleClickRef.current = true;
+      showSample(sampleIndex + (distance < 0 ? 1 : -1));
+    }
     touchStartX.current = null;
+  }
+
+  function selectHighlightedSample() {
+    if (suppressSampleClickRef.current) {
+      suppressSampleClickRef.current = false;
+      return;
+    }
+    if (!sampleLoading) void chooseSample(sample);
+  }
+
+  function openResults() {
+    if (!ready) return;
+    if (analysisState === "error") setAnalysisState("idle");
+    setShowResultPage(true);
   }
 
   async function loadSampleFile(asset: { path: string; name: string; type: string }): Promise<LocalFile> {
@@ -303,6 +342,10 @@ export function ReviewWorkspace() {
         ...chosenSample.additional.map(loadSampleFile),
       ]);
       clearFiles();
+      analysisGenerationRef.current += 1;
+      analysisInFlightForRef.current = null;
+      setAnalysisResult(null);
+      setAnalysisState("idle");
       setApplication(sampleApplication);
       setFrontLabel(sampleFront);
       setAdditionalLabels(sampleAdditional);
@@ -343,6 +386,10 @@ export function ReviewWorkspace() {
       releasePreview(application);
       setApplication(nextApplication);
     }
+    analysisGenerationRef.current += 1;
+    analysisInFlightForRef.current = null;
+    setAnalysisResult(null);
+    setAnalysisState("idle");
     if (nextLabels.length) {
       releasePreview(frontLabel);
       additionalLabels.forEach(releasePreview);
@@ -356,8 +403,11 @@ export function ReviewWorkspace() {
     }
   }
 
-  async function analyzeLabel() {
+  const analyzeLabel = useCallback(async () => {
     if (!ready || !application?.file || !frontLabel?.file) return;
+    const generation = analysisGenerationRef.current;
+    if (analysisInFlightForRef.current === generation) return;
+    analysisInFlightForRef.current = generation;
     const formData = new FormData();
     formData.append("application", application.file);
     formData.append("frontLabel", frontLabel.file);
@@ -371,10 +421,13 @@ export function ReviewWorkspace() {
       const response = await fetch("/api/analyze", { method: "POST", body: formData, signal: controller.signal });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.error?.message ?? "The comparison could not be completed.");
+      if (generation !== analysisGenerationRef.current) return;
       setAnalysisResult(payload as AnalysisResponse);
       setAnalysisState("complete");
     } catch (analysisError) {
-      setAnalysisState("idle");
+      if (generation !== analysisGenerationRef.current) return;
+      setAnalysisState("error");
+      setShowResultPage(false);
       setError(
         analysisError instanceof DOMException && analysisError.name === "AbortError"
           ? "The comparison took too long. Try smaller or clearer images."
@@ -382,11 +435,18 @@ export function ReviewWorkspace() {
       );
     } finally {
       window.clearTimeout(timeout);
+      if (analysisInFlightForRef.current === generation) analysisInFlightForRef.current = null;
     }
-  }
+  }, [additionalLabels, application, frontLabel, ready]);
 
-  if (analysisState === "complete" && analysisResult) {
-    return <div ref={resultTopRef}><ResultScreen response={analysisResult} onReset={resetReview} /></div>;
+  useEffect(() => {
+    if (!ready || analysisResult || analysisState !== "idle") return;
+    const start = window.setTimeout(() => void analyzeLabel(), 0);
+    return () => window.clearTimeout(start);
+  }, [analysisResult, analysisState, analyzeLabel, ready]);
+
+  if (showResultPage) {
+    return <div ref={resultTopRef}><ResultScreen response={analysisResult} analysisState={analysisState} onReset={resetReview} /></div>;
   }
 
   const wheelItems = preparedSamples.map((item, index) => {
@@ -410,25 +470,39 @@ export function ReviewWorkspace() {
         <section
           className="wheel-window"
           aria-label="Prepared sample tests"
+          role="button"
+          tabIndex={0}
           onMouseMove={(event) => {
             const bounds = event.currentTarget.getBoundingClientRect();
-            const position = Math.min(Math.max(event.clientX - bounds.left, 0), bounds.width - 1);
-            const nextIndex = Math.floor((position / bounds.width) * preparedSamples.length);
+            const activeBandWidth = 128;
+            const bandStart = (bounds.width - activeBandWidth) / 2;
+            const position = event.clientX - bounds.left - bandStart;
+            if (position < 0 || position >= activeBandWidth) return;
+            const nextIndex = Math.min(
+              preparedSamples.length - 1,
+              Math.floor((position / activeBandWidth) * preparedSamples.length),
+            );
             if (nextIndex !== sampleIndex) showSample(nextIndex);
           }}
           onTouchStart={(event) => { touchStartX.current = event.touches[0].clientX; }}
           onTouchEnd={handleTouchEnd}
+          onClick={selectHighlightedSample}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              selectHighlightedSample();
+            }
+          }}
         >
           <div className="sample-wheel" aria-live="polite">
-            {wheelItems.map(({ item, index, offset }) => (
+            {wheelItems.map(({ item, offset }) => (
               <button
                 key={item.id}
                 className="wheel-card"
                 data-slot={offset}
                 data-active={offset === 0 || undefined}
                 data-loaded={selectedSample === item.id || undefined}
-                onFocus={() => showSample(index)}
-                onClick={() => { showSample(index); chooseSample(item); }}
+                tabIndex={-1}
                 disabled={sampleLoading}
                 aria-label={`Use ${item.title} sample`}
               >
@@ -438,7 +512,17 @@ export function ReviewWorkspace() {
             ))}
           </div>
           <div className="wheel-dots" aria-label="Sample position">
-            {preparedSamples.map((item, index) => <button key={item.id} type="button" aria-label={`Show ${item.title}`} aria-current={sampleIndex === index ? "true" : undefined} onClick={() => showSample(index)} />)}
+            {preparedSamples.map((item, index) => (
+              <button
+                key={item.id}
+                type="button"
+                aria-label={`Show ${item.title}`}
+                aria-current={sampleIndex === index ? "true" : undefined}
+                onMouseEnter={() => showSample(index)}
+                onFocus={() => showSample(index)}
+                onClick={(event) => { event.stopPropagation(); showSample(index); }}
+              />
+            ))}
           </div>
         </section>
 
@@ -449,8 +533,8 @@ export function ReviewWorkspace() {
           </div>
           <div className="upload-action">
             <input ref={uploadInputRef} className="hidden-upload" type="file" multiple accept="application/pdf,.pdf,image/png,image/jpeg,.png,.jpg,.jpeg" onChange={(event) => uploadDocuments(event.target.files)} />
-            <button className="upload-or-check" type="button" disabled={analysisState === "analyzing" || sampleLoading} onClick={() => ready ? analyzeLabel() : uploadInputRef.current?.click()}>
-              {analysisState === "analyzing" ? <><span className="compare-spinner" /> Checking…</> : ready ? <>Check<br />Documents</> : <>Upload<br />Documents</>}
+            <button className="upload-or-check" type="button" disabled={sampleLoading} onClick={() => ready ? openResults() : uploadInputRef.current?.click()}>
+              {ready ? <>Check<br />Documents</> : <>Upload<br />Documents</>}
             </button>
             {error ? <span className="upload-error upload-error--compact" role="alert">{error}</span> : null}
           </div>
