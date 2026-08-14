@@ -182,6 +182,7 @@ button:focus-visible, label:focus-within, a:focus-visible { outline: 4px solid r
 .result-stage { position: relative; z-index: 1; min-height: 241px; display: grid; place-items: center; overflow: hidden; }
 .document-crossing { position: absolute; inset: 5px 0; display: grid; place-items: center; }
 .document-crossing video { width: min(100%,430px); height: 100%; object-fit: contain; }
+.result-progress-copy { position: absolute; z-index: 2; bottom: 16px; left: 0; right: 0; margin: 0; color: #b99a62; font: 500 13px/1.1 Palatino,"Palatino Linotype","Book Antiqua",serif; letter-spacing: .015em; text-align: center; animation: reveal .3s ease both; }
 .result-status-word { position: relative; z-index: 2; margin: 0; padding: 5px 28px 7px; color: #e0b34f; font: italic 600 clamp(37px,5vw,57px)/1.05 Palatino,"Palatino Linotype","Book Antiqua",serif; letter-spacing: .025em; text-align: center; text-shadow: 0 2px 0 rgba(0,0,0,.88),0 0 18px rgba(224,179,79,.38); transform: translateY(7px) rotate(-8deg); animation: status-arrival .58s cubic-bezier(.18,.85,.25,1.2) both; }
 .result-status-word::before, .result-status-word::after { content: ""; position: absolute; left: 4%; right: 4%; height: 1px; background: linear-gradient(90deg,transparent,rgba(185,154,98,.8) 18%,rgba(225,204,155,.92) 50%,rgba(185,154,98,.8) 82%,transparent); box-shadow: 0 1px 0 rgba(0,0,0,.65); }
 .result-status-word::before { top: 0; }

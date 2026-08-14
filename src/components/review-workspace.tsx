@@ -162,9 +162,8 @@ function ResultScreen({
   const status = response?.verification.overallStatus;
   const [showDetails, setShowDetails] = useState(false);
   const [decision, setDecision] = useState<ReviewerDecision | null>(null);
-  const [resultRevealed, setResultRevealed] = useState(false);
   const hasDecision = decision !== null;
-  const resultReady = response !== null && resultRevealed;
+  const resultReady = response !== null;
 
   return (
     <div className="result-shell">
@@ -180,7 +179,7 @@ function ResultScreen({
           <aside className="result-owl">
             {resultReady ? (
               <OwlGuide
-                message={hasDecision ? "Success!" : "Results are here. Please make a decision."}
+                message={hasDecision ? "Your decision is recorded. Success!" : "Results are here. Please make a decision."}
                 success={hasDecision}
               />
             ) : null}
@@ -193,12 +192,12 @@ function ResultScreen({
                   autoPlay
                   muted
                   playsInline
-                  loop={!response}
-                  onEnded={() => { if (response) setResultRevealed(true); }}
+                  onLoadedMetadata={(event) => { event.currentTarget.playbackRate = 0.6; }}
                 >
                   <source src="/document-crossing-transparent.webm" type="video/webm" />
                 </video>
               </div>
+              {!resultReady ? <p className="result-progress-copy">Carefully checking the application and label…</p> : null}
               {resultReady && status ? <h1 id="machine-result-title" className="result-status-word">{machineStatus(status)}</h1> : null}
             </div>
             {resultReady ? (
@@ -459,7 +458,7 @@ export function ReviewWorkspace() {
     <div className="submit-page">
       <header className="minimal-bar">
         <div className="simple-logo"><span>LP</span><strong>LabelProof</strong></div>
-        <small>Alcohol label comparison</small>
+        <small>AI-Powered Alcohol Label Verification App</small>
       </header>
 
       <main className="submit-main" data-ready={ready || undefined}>
