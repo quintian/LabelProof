@@ -35,9 +35,13 @@ export async function POST(request: Request) {
     const frontLabel = formData.get("frontLabel");
     const additionalLabels = formData.getAll("additionalLabel");
 
-    if (!isFile(application) || !isFile(frontLabel)) {
+    if (
+      !isFile(application) ||
+      !isFile(frontLabel) ||
+      !isFile(additionalLabels[0] ?? null)
+    ) {
       return apiError(
-        "An application PDF and front label image are required.",
+        "An application PDF, front label image, and back label image are required.",
         400,
         "missing_files",
       );
@@ -56,9 +60,9 @@ export async function POST(request: Request) {
 
     const labels = [frontLabel, ...additionalLabels.filter(isFile)];
 
-    if (labels.length > 3 || labels.some((file) => !IMAGE_TYPES.has(file.type))) {
+    if (labels.length < 2 || labels.length > 3 || labels.some((file) => !IMAGE_TYPES.has(file.type))) {
       return apiError(
-        "Supply one to three PNG or JPEG label images.",
+        "Supply front and back PNG or JPEG label images, plus at most one additional image.",
         415,
         "invalid_label_files",
       );
@@ -92,10 +96,7 @@ export async function POST(request: Request) {
       })),
     });
     const processingTimeMs = Math.round(performance.now() - requestStartedAt);
-    const verification = verifyDocumentExtraction(
-      extraction,
-      processingTimeMs,
-    );
+    const verification = verifyDocumentExtraction(extraction, processingTimeMs);
 
     return NextResponse.json({
       verification,

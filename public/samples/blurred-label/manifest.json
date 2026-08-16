@@ -1,8 +1,8 @@
 {
-  "id": "needs-review",
-  "name": "Unreadable warning",
+  "id": "blurred-label",
+  "name": "Blurred label",
   "intendedOutcome": "needs_review",
-  "description": "The back-label warning is intentionally blurred to require human review.",
+  "description": "The front label is too blurry for a safe comparison.",
   "synthetic": true,
   "application": "application.pdf",
   "labels": [

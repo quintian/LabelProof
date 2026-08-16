@@ -9,6 +9,10 @@ import type {
   VerificationResult,
   VerificationStatus,
 } from "@/lib/contracts/verification";
+import {
+  countRequiredDocuments,
+  isSubmissionComplete,
+} from "@/lib/submission";
 
 const MAX_COMBINED_BYTES = 3 * 1024 * 1024;
 
@@ -64,12 +68,20 @@ const preparedSamples: PreparedSample[] = [
     additional: [{ path: "/samples/warning-mismatch/back-label.jpg", name: "civic-oak-warning-mismatch-back.jpg", type: "image/jpeg" }],
   },
   {
-    id: "needs-review",
-    title: "Unreadable warning",
-    description: "The warning is too blurry for a confident comparison.",
-    application: { path: "/samples/needs-review/application.pdf", name: "civic-oak-application.pdf", type: "application/pdf" },
-    front: { path: "/samples/needs-review/front-label.jpg", name: "civic-oak-front-label.jpg", type: "image/jpeg" },
-    additional: [{ path: "/samples/needs-review/back-label.jpg", name: "civic-oak-unreadable-warning-back.jpg", type: "image/jpeg" }],
+    id: "missing-warning",
+    title: "Missing warning",
+    description: "The government warning does not appear on the label.",
+    application: { path: "/samples/missing-warning/application.pdf", name: "civic-oak-application.pdf", type: "application/pdf" },
+    front: { path: "/samples/missing-warning/front-label.jpg", name: "civic-oak-front-label.jpg", type: "image/jpeg" },
+    additional: [{ path: "/samples/missing-warning/back-label.jpg", name: "civic-oak-missing-warning-back.jpg", type: "image/jpeg" }],
+  },
+  {
+    id: "blurred-label",
+    title: "Blurred label",
+    description: "The label is too blurry for a safe comparison.",
+    application: { path: "/samples/blurred-label/application.pdf", name: "civic-oak-application.pdf", type: "application/pdf" },
+    front: { path: "/samples/blurred-label/front-label.jpg", name: "civic-oak-blurred-front.jpg", type: "image/jpeg" },
+    additional: [{ path: "/samples/blurred-label/back-label.jpg", name: "civic-oak-back-label.jpg", type: "image/jpeg" }],
   },
 ];
 
@@ -95,6 +107,72 @@ function statusLabel(status: VerificationStatus) {
   return "Review";
 }
 
+function KeyedOwlVideo({ success }: { success: boolean }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return;
+
+    let frameRequest = 0;
+    const drawFrame = () => {
+      if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+        }
+
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const frame = context.getImageData(0, 0, canvas.width, canvas.height);
+        const pixels = frame.data;
+
+        for (let index = 0; index < pixels.length; index += 4) {
+          const red = pixels[index];
+          const green = pixels[index + 1];
+          const blue = pixels[index + 2];
+          const brightest = Math.max(red, green, blue);
+          const darkest = Math.min(red, green, blue);
+
+          // The supplied Pika clips were rendered against black. Remove only
+          // nearly-neutral dark pixels so the owl's blue details remain intact.
+          if (brightest < 42 && brightest - darkest < 18) {
+            pixels[index + 3] = Math.round((brightest / 42) * 255);
+          }
+        }
+
+        context.putImageData(frame, 0, 0);
+      }
+      frameRequest = requestAnimationFrame(drawFrame);
+    };
+
+    frameRequest = requestAnimationFrame(drawFrame);
+    return () => cancelAnimationFrame(frameRequest);
+  }, [success]);
+
+  return (
+    <>
+      <video
+        ref={videoRef}
+        className="owl-video-source"
+        key={success ? "success" : "pointing"}
+        autoPlay
+        muted
+        playsInline
+        loop={success}
+        aria-hidden="true"
+      >
+        <source src={success ? "/success-owl.mp4" : "/pointing-owl.mp4"} type="video/mp4" />
+      </video>
+      <canvas ref={canvasRef} className="owl-video-canvas" aria-label="Animated LabelProof owl guide" />
+    </>
+  );
+}
+
 function OwlGuide({
   message,
   compact = false,
@@ -112,16 +190,7 @@ function OwlGuide({
       {compact ? (
         <Image src="/owl.png" alt="LabelProof owl guide" width={116} height={116} priority />
       ) : (
-        <video
-          key={success ? "success" : "pointing"}
-          autoPlay
-          muted
-          playsInline
-          loop={success}
-          aria-label="Animated LabelProof owl guide"
-        >
-          <source src={success ? "/success-owl.mp4" : "/pointing-owl.mp4"} type="video/mp4" />
-        </video>
+        <KeyedOwlVideo success={success} />
       )}
     </div>
   );
@@ -255,7 +324,11 @@ export function ReviewWorkspace() {
   const analysisInFlightForRef = useRef<number | null>(null);
 
   const sample = preparedSamples[sampleIndex];
-  const ready = application !== null && frontLabel !== null;
+  const backLabel = additionalLabels[0] ?? null;
+  const requiredDocuments = { application, frontLabel, backLabel };
+  const requiredDocumentCount = countRequiredDocuments(requiredDocuments);
+  const ready = isSubmissionComplete(requiredDocuments);
+  const partialUpload = requiredDocumentCount > 0 && !ready;
   const owlMessage = ready
     ? selectedSample
       ? "Sample ready! Click Check Documents"
@@ -295,6 +368,7 @@ export function ReviewWorkspace() {
   }
 
   function showSample(index: number) {
+    if (selectedSample) return;
     setSampleIndex((index + preparedSamples.length) % preparedSamples.length);
   }
 
@@ -309,6 +383,7 @@ export function ReviewWorkspace() {
   }
 
   function selectHighlightedSample() {
+    if (selectedSample) return;
     if (suppressSampleClickRef.current) {
       suppressSampleClickRef.current = false;
       return;
@@ -365,45 +440,75 @@ export function ReviewWorkspace() {
     const images = selected.filter((file) => ["image/jpeg", "image/png"].includes(file.type)).slice(0, 3);
 
     if (!pdf && images.length === 0) {
-      setError("Choose a PDF application and at least one PNG or JPEG label.");
+      setError("Choose a PDF application and PNG or JPEG front/back labels.");
       return;
     }
 
-    const nextApplication = pdf
+    const createdApplication = pdf
       ? { name: pdf.name, size: pdf.size, file: pdf, previewUrl: URL.createObjectURL(pdf) }
-      : application;
-    const nextLabels = images.map((file) => ({ name: file.name, size: file.size, file, previewUrl: URL.createObjectURL(file) }));
-    const nextTotal = (nextApplication?.size ?? 0) + (nextLabels.length ? nextLabels.reduce((sum, file) => sum + file.size, 0) : frontLabel?.size ?? 0);
+      : null;
+    const createdLabels = images.map((file) => ({
+      name: file.name,
+      size: file.size,
+      file,
+      previewUrl: URL.createObjectURL(file),
+    }));
+
+    const nextApplication = createdApplication ?? application;
+    let nextFrontLabel = frontLabel;
+    let nextAdditionalLabels = [...additionalLabels];
+
+    if (createdLabels.length >= 2) {
+      nextFrontLabel = createdLabels[0];
+      nextAdditionalLabels = createdLabels.slice(1);
+    } else if (createdLabels.length === 1) {
+      if (!nextFrontLabel) {
+        nextFrontLabel = createdLabels[0];
+      } else if (!nextAdditionalLabels[0]) {
+        nextAdditionalLabels = [createdLabels[0]];
+      } else if (nextAdditionalLabels.length < 2) {
+        nextAdditionalLabels = [...nextAdditionalLabels, createdLabels[0]];
+      } else {
+        releasePreview(createdLabels[0]);
+        createdLabels.pop();
+      }
+    }
+
+    const nextTotal =
+      (nextApplication?.size ?? 0) +
+      (nextFrontLabel?.size ?? 0) +
+      nextAdditionalLabels.reduce((sum, file) => sum + file.size, 0);
     if (nextTotal > MAX_COMBINED_BYTES) {
-      if (pdf) URL.revokeObjectURL(nextApplication?.previewUrl ?? "");
-      nextLabels.forEach((file) => URL.revokeObjectURL(file.previewUrl));
+      releasePreview(createdApplication);
+      createdLabels.forEach(releasePreview);
       setError("Please keep all files under 3 MB total.");
       return;
     }
 
-    if (pdf) {
+    if (createdApplication) {
       releasePreview(application);
-      setApplication(nextApplication);
     }
+    if (createdLabels.length >= 2) {
+      releasePreview(frontLabel);
+      additionalLabels.forEach(releasePreview);
+    }
+
     analysisGenerationRef.current += 1;
     analysisInFlightForRef.current = null;
     setAnalysisResult(null);
     setAnalysisState("idle");
-    if (nextLabels.length) {
-      releasePreview(frontLabel);
-      additionalLabels.forEach(releasePreview);
-      setFrontLabel(nextLabels[0]);
-      setAdditionalLabels(nextLabels.slice(1));
-    }
+    setApplication(nextApplication);
+    setFrontLabel(nextFrontLabel);
+    setAdditionalLabels(nextAdditionalLabels);
     setSelectedSample(null);
     setError(null);
-    if ((nextApplication !== null) && (nextLabels.length > 0 || frontLabel !== null)) {
+    if (nextApplication && nextFrontLabel && nextAdditionalLabels[0]) {
       setShowGuideBubble(true);
     }
   }
 
   const analyzeLabel = useCallback(async () => {
-    if (!ready || !application?.file || !frontLabel?.file) return;
+    if (!ready || !application?.file || !frontLabel?.file || !backLabel?.file) return;
     const generation = analysisGenerationRef.current;
     if (analysisInFlightForRef.current === generation) return;
     analysisInFlightForRef.current = generation;
@@ -436,7 +541,7 @@ export function ReviewWorkspace() {
       window.clearTimeout(timeout);
       if (analysisInFlightForRef.current === generation) analysisInFlightForRef.current = null;
     }
-  }, [additionalLabels, application, frontLabel, ready]);
+  }, [additionalLabels, application, backLabel, frontLabel, ready]);
 
   useEffect(() => {
     if (!ready || analysisResult || analysisState !== "idle") return;
@@ -449,10 +554,12 @@ export function ReviewWorkspace() {
   }
 
   const wheelItems = preparedSamples.map((item, index) => {
-    const offset = (index - sampleIndex + preparedSamples.length) % preparedSamples.length;
-    return { item, index, offset: offset > 1 ? offset - preparedSamples.length : offset };
+    const half = Math.floor(preparedSamples.length / 2);
+    const rawOffset = index - sampleIndex;
+    const offset = ((rawOffset + half + preparedSamples.length) % preparedSamples.length) - half;
+    return { item, index, offset };
   });
-  const liquidLevel = ready ? 92 : application || frontLabel ? 48 : 0;
+  const liquidLevel = Math.round((requiredDocumentCount / 3) * 92);
 
   return (
     <div className="submit-page">
@@ -472,6 +579,7 @@ export function ReviewWorkspace() {
           role="button"
           tabIndex={0}
           onMouseMove={(event) => {
+            if (selectedSample) return;
             const bounds = event.currentTarget.getBoundingClientRect();
             const activeBandWidth = 128;
             const bandStart = (bounds.width - activeBandWidth) / 2;
@@ -517,6 +625,7 @@ export function ReviewWorkspace() {
                 type="button"
                 aria-label={`Show ${item.title}`}
                 aria-current={sampleIndex === index ? "true" : undefined}
+                disabled={Boolean(selectedSample)}
                 onMouseEnter={() => showSample(index)}
                 onFocus={() => showSample(index)}
                 onClick={(event) => { event.stopPropagation(); showSample(index); }}
@@ -526,16 +635,30 @@ export function ReviewWorkspace() {
         </section>
 
         <section className="upload-window" aria-label="Upload and compare documents">
-          <div className="upload-vessel" aria-label={ready ? "Documents uploaded" : "Document upload progress"}>
+          <div className="upload-vessel" aria-label={`${requiredDocumentCount} of 3 required documents uploaded`}>
             <div className="vessel-water" style={{ height: `${liquidLevel}%` }} />
             <div className="vessel-glow" />
           </div>
           <div className="upload-action">
-            <input ref={uploadInputRef} className="hidden-upload" type="file" multiple accept="application/pdf,.pdf,image/png,image/jpeg,.png,.jpg,.jpeg" onChange={(event) => uploadDocuments(event.target.files)} />
+            <input
+              ref={uploadInputRef}
+              className="hidden-upload"
+              type="file"
+              multiple
+              accept="application/pdf,.pdf,image/png,image/jpeg,.png,.jpg,.jpeg"
+              onChange={(event) => {
+                uploadDocuments(event.target.files);
+                event.currentTarget.value = "";
+              }}
+            />
             <button className="upload-or-check" type="button" disabled={sampleLoading} onClick={() => ready ? openResults() : uploadInputRef.current?.click()}>
               {ready ? <>Check<br />Documents</> : <>Upload<br />Documents</>}
             </button>
-            {error ? <span className="upload-error upload-error--compact" role="alert">{error}</span> : null}
+            {error ? (
+              <span className="upload-error upload-error--compact" role="alert">{error}</span>
+            ) : partialUpload ? (
+              <span className="upload-feedback">Please upload more documents.</span>
+            ) : null}
           </div>
         </section>
       </main>

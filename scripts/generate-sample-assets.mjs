@@ -23,7 +23,7 @@ const colors = {
 const warningBody =
   "(1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems.";
 
-function frontOverlay({ alcoholByVolume = 45, proof = 90 } = {}) {
+function frontOverlay({ alcoholByVolume = 45, proof = 90, netContents = "750 mL" } = {}) {
   return Buffer.from(`
     <svg width="1200" height="1800" viewBox="0 0 1200 1800" xmlns="http://www.w3.org/2000/svg">
       <rect x="120" y="680" width="960" height="650" rx="18" fill="#f8efdccc" stroke="${colors.gold}" stroke-width="3"/>
@@ -36,32 +36,46 @@ function frontOverlay({ alcoholByVolume = 45, proof = 90 } = {}) {
       <line x1="320" x2="880" y1="1160" y2="1160" stroke="${colors.gold}" stroke-width="2"/>
       <text x="245" y="1245" text-anchor="start" fill="${colors.navy}" font-family="Arial, sans-serif" font-size="28" font-weight="700">${alcoholByVolume}% ALC./VOL.</text>
       <text x="600" y="1245" text-anchor="middle" fill="${colors.navy}" font-family="Arial, sans-serif" font-size="26">(${proof} PROOF)</text>
-      <text x="955" y="1245" text-anchor="end" fill="${colors.navy}" font-family="Arial, sans-serif" font-size="28" font-weight="700">750 mL</text>
+      <text x="955" y="1245" text-anchor="end" fill="${colors.navy}" font-family="Arial, sans-serif" font-size="28" font-weight="700">${netContents}</text>
       <text x="600" y="1300" text-anchor="middle" fill="${colors.navy}" font-family="Arial, sans-serif" font-size="20" letter-spacing="3">SYNTHETIC DEMONSTRATION LABEL</text>
     </svg>
   `);
 }
 
-function backOverlay({ warning = warningBody } = {}) {
+function backOverlay({ warning = warningBody, netContents = "750 mL", includeWarning = true, warningOnly = false } = {}) {
   const warningLines = warning.match(/.{1,64}(?:\s|$)/g) ?? [warning];
-  return Buffer.from(`
-    <svg width="1200" height="1800" viewBox="0 0 1200 1800" xmlns="http://www.w3.org/2000/svg">
+  const warningSection = includeWarning
+    ? `
+      <rect x="145" y="805" width="910" height="505" rx="12" fill="#fffaf0dd" stroke="${colors.navy}" stroke-width="3"/>
+      <text x="190" y="875" fill="${colors.navy}" font-family="Arial, sans-serif" font-size="30" font-weight="700">GOVERNMENT WARNING:</text>
+      <text x="190" y="930" fill="${colors.navy}" font-family="Arial, sans-serif" font-size="27">${warningLines
+        .map((line, index) => `<tspan x="190" dy="${index === 0 ? 0 : 40}">${line.trim()}</tspan>`)
+        .join("")}</text>`
+    : `
+      <text x="600" y="960" text-anchor="middle" fill="${colors.navy}" font-family="Georgia, serif" font-size="34" font-style="italic">A reserved bourbon for unhurried occasions.</text>
+      <text x="600" y="1015" text-anchor="middle" fill="${colors.navy}" font-family="Arial, sans-serif" font-size="22" letter-spacing="3">CRAFTED IN KENTUCKY</text>`;
+  const identitySection = warningOnly
+    ? ""
+    : `
       <text x="600" y="470" text-anchor="middle" fill="${colors.navy}" font-family="Georgia, serif" font-size="54" font-weight="700" letter-spacing="4">CIVIC OAK</text>
       <text x="600" y="520" text-anchor="middle" fill="${colors.gold}" font-family="Arial, sans-serif" font-size="23" font-weight="700" letter-spacing="6">FOUNDERS RESERVE</text>
       <text x="600" y="600" text-anchor="middle" fill="${colors.navy}" font-family="Georgia, serif" font-size="28" font-style="italic">A patient Kentucky bourbon shaped by oak, time, and craft.</text>
       <text x="600" y="665" text-anchor="middle" fill="${colors.navy}" font-family="Arial, sans-serif" font-size="24">Distilled and bottled by Civic Oak Distilling Co.</text>
       <text x="600" y="700" text-anchor="middle" fill="${colors.navy}" font-family="Arial, sans-serif" font-size="24">Frankfort, Kentucky 40601</text>
-      <line x1="165" x2="1035" y1="755" y2="755" stroke="${colors.gold}" stroke-width="3"/>
-
-      <rect x="145" y="805" width="910" height="505" rx="12" fill="#fffaf0dd" stroke="${colors.navy}" stroke-width="3"/>
-      <text x="190" y="875" fill="${colors.navy}" font-family="Arial, sans-serif" font-size="30" font-weight="700">GOVERNMENT WARNING:</text>
-      <text x="190" y="930" fill="${colors.navy}" font-family="Arial, sans-serif" font-size="27">${warningLines
-        .map((line, index) => `<tspan x="190" dy="${index === 0 ? 0 : 40}">${line.trim()}</tspan>`)
-        .join("")}</text>
-
+      <line x1="165" x2="1035" y1="755" y2="755" stroke="${colors.gold}" stroke-width="3"/>`;
+  const footerSection = warningOnly
+    ? `<text x="600" y="1490" text-anchor="middle" fill="${colors.navy}" font-family="Arial, sans-serif" font-size="20" letter-spacing="3">SYNTHETIC DEMONSTRATION BACK LABEL</text>`
+    : `
       <line x1="165" x2="1035" y1="1370" y2="1370" stroke="${colors.gold}" stroke-width="2"/>
-      <text x="600" y="1435" text-anchor="middle" fill="${colors.navy}" font-family="Arial, sans-serif" font-size="25" font-weight="700">45% ALC./VOL. (90 PROOF) · 750 mL</text>
-      <text x="600" y="1490" text-anchor="middle" fill="${colors.navy}" font-family="Arial, sans-serif" font-size="20" letter-spacing="3">SYNTHETIC DEMONSTRATION LABEL</text>
+      <text x="600" y="1435" text-anchor="middle" fill="${colors.navy}" font-family="Arial, sans-serif" font-size="25" font-weight="700">45% ALC./VOL. (90 PROOF) · ${netContents}</text>
+      <text x="600" y="1490" text-anchor="middle" fill="${colors.navy}" font-family="Arial, sans-serif" font-size="20" letter-spacing="3">SYNTHETIC DEMONSTRATION LABEL</text>`;
+  return Buffer.from(`
+    <svg width="1200" height="1800" viewBox="0 0 1200 1800" xmlns="http://www.w3.org/2000/svg">
+      ${identitySection}
+
+      ${warningSection}
+
+      ${footerSection}
     </svg>
   `);
 }
@@ -262,8 +276,12 @@ async function createSample({
   description,
   alcoholByVolume = 45,
   proof = 90,
+  netContents = "750 mL",
   warning = warningBody,
   blurBackLabel = false,
+  blurFrontLabel = false,
+  includeWarning = true,
+  backWarningOnly = false,
 }) {
   const outputDir = path.join(samplesDir, id);
   await fs.mkdir(outputDir, { recursive: true });
@@ -273,13 +291,13 @@ async function createSample({
       outputDir,
       "civic-oak-front-background.png",
       "front-label.jpg",
-      frontOverlay({ alcoholByVolume, proof }),
+      frontOverlay({ alcoholByVolume, proof, netContents }),
     ),
     createLabel(
       outputDir,
       "civic-oak-back-background.png",
       "back-label.jpg",
-      backOverlay({ warning }),
+      backOverlay({ warning, netContents, includeWarning, warningOnly: backWarningOnly }),
     ),
     createApplicationPdf(outputDir),
     writeManifest(outputDir, { id, name, intendedOutcome, description }),
@@ -287,12 +305,23 @@ async function createSample({
 
   if (blurBackLabel) {
     await sharp(path.join(outputDir, "back-label.jpg"))
-      .blur(8)
+      .blur(20)
       .jpeg({ quality: 88, mozjpeg: true })
       .toFile(path.join(outputDir, "back-label-blurred.jpg"));
     await fs.rename(
       path.join(outputDir, "back-label-blurred.jpg"),
       path.join(outputDir, "back-label.jpg"),
+    );
+  }
+
+  if (blurFrontLabel) {
+    await sharp(path.join(outputDir, "front-label.jpg"))
+      .blur(20)
+      .jpeg({ quality: 88, mozjpeg: true })
+      .toFile(path.join(outputDir, "front-label-blurred.jpg"));
+    await fs.rename(
+      path.join(outputDir, "front-label-blurred.jpg"),
+      path.join(outputDir, "front-label.jpg"),
     );
   }
 }
@@ -320,11 +349,19 @@ await Promise.all([
     warning: warningBody.replace("health problems.", "serious health problems."),
   }),
   createSample({
-    id: "needs-review",
-    name: "Unreadable warning",
+    id: "missing-warning",
+    name: "Missing warning",
+    intendedOutcome: "mismatch",
+    description: "The back label intentionally omits the government warning.",
+    includeWarning: false,
+  }),
+  createSample({
+    id: "blurred-label",
+    name: "Blurred label",
     intendedOutcome: "needs_review",
-    description: "The back-label warning is intentionally blurred to require human review.",
-    blurBackLabel: true,
+    description: "The front label is too blurry for a safe comparison.",
+    blurFrontLabel: true,
+    backWarningOnly: true,
   }),
 ]);
 

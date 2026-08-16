@@ -155,6 +155,45 @@ describe("full deterministic verification", () => {
     expect(result.summary.needsReviewCount).toBe(1);
   });
 
+  it("raises an overall mismatch when the required warning is absent", () => {
+    const missingWarning = structuredClone(completeMatch);
+    missingWarning.label.governmentWarningHeading = {
+      value: null,
+      verbatimText: null,
+      readability: "not_found",
+      source: "none",
+    };
+    missingWarning.label.governmentWarningBody = {
+      value: null,
+      verbatimText: null,
+      readability: "not_found",
+      source: "none",
+    };
+
+    const result = verifyDocumentExtraction(missingWarning, 10);
+
+    expect(result.overallStatus).toBe("mismatch");
+    expect(result.summary.mismatchCount).toBe(2);
+  });
+
+  it("routes all unreadable front-label fields to review", () => {
+    const blurred = structuredClone(completeMatch);
+    blurred.label.brandName = { value: null, verbatimText: null, readability: "uncertain", source: "front_label" };
+    blurred.label.classType = { value: null, verbatimText: null, readability: "uncertain", source: "front_label" };
+    blurred.label.alcoholByVolume = { value: null, verbatimText: null, readability: "uncertain", source: "front_label" };
+    blurred.label.proof = { value: null, verbatimText: null, readability: "uncertain", source: "front_label" };
+    blurred.label.netContents = { value: null, verbatimText: null, readability: "uncertain", source: "front_label" };
+
+    const result = verifyDocumentExtraction(blurred, 10);
+
+    expect(result.overallStatus).toBe("needs_review");
+    expect(result.summary).toEqual({
+      passCount: 2,
+      mismatchCount: 0,
+      needsReviewCount: 5,
+    });
+  });
+
   it("omits optional proof when the application does not provide it", () => {
     const withoutProof = structuredClone(completeMatch);
     withoutProof.application.proof = {

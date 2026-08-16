@@ -24,8 +24,13 @@ Rules:
 - Use readability "clear" only for legible, unambiguous text.
 - Use "uncertain" with null value when text may be present but cannot be read safely. Never guess.
 - Use "not_found" with null value and source "none" when a field is absent.
+- When a label or a field is blurred, obscured, or too low quality to read, use
+  "uncertain" with a null value for every affected field. Do not infer text
+  from partial pixels, from the application, or from another label image.
+- Use "not_found" only when the complete supplied front/back artwork clearly
+  establishes that a field is absent.
 - Use source "application_pdf" for application fields.
-- Use "front_label" for the front artwork, "back_label" for artwork that functions as a back label, and "additional_label" otherwise.
+- Use "front_label" for source 1, "back_label" for source 2, and "additional_label" for any later source.
 - Beverage category is one of beer, wine, or distilled_spirits and comes only from the application.
 - Extract the government warning heading separately from the body.
 - The warning body excludes the heading and preserves both numbered clauses verbatim.
@@ -69,7 +74,9 @@ export async function extractDocuments(
       text:
         index === 0
           ? "Label source 1: front or brand label artwork."
-          : `Label source ${index + 1}: back or additional label artwork.`,
+          : index === 1
+            ? "Label source 2: back label artwork."
+            : `Label source ${index + 1}: additional label artwork.`,
     },
     {
       type: "input_image" as const,

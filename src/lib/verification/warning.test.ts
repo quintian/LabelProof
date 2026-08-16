@@ -56,12 +56,13 @@ describe("government warning heading", () => {
     ).toBe("mismatch");
   });
 
-  it("routes a missing heading to review", () => {
+  it("flags a missing heading as a mismatch", () => {
     const result = compareGovernmentWarningHeading(
       warningField(null, "not_found"),
     );
 
-    expect(result.status).toBe("needs_review");
+    expect(result.status).toBe("mismatch");
+    expect(result.explanation).toContain("absent");
   });
 });
 
@@ -97,6 +98,15 @@ describe("government warning body", () => {
     );
 
     expect(result.status).toBe("needs_review");
+  });
+
+  it("flags a missing warning body as a mismatch", () => {
+    const result = compareGovernmentWarningBody(
+      warningField(null, "not_found"),
+    );
+
+    expect(result.status).toBe("mismatch");
+    expect(result.explanation).toContain("absent");
   });
 
   it("returns separate, explainable heading and body results", () => {

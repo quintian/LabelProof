@@ -51,15 +51,15 @@ function compareWarningField(
     },
   };
 
-  if (detected.readability === "not_found" || detected.value === null) {
+  if (detected.readability === "not_found") {
     return {
       ...base,
-      status: "needs_review",
+      status: "mismatch",
       explanation: options.missingExplanation,
     };
   }
 
-  if (detected.readability === "uncertain") {
+  if (detected.readability === "uncertain" || detected.value === null) {
     return {
       ...base,
       status: "needs_review",
@@ -92,7 +92,7 @@ export function compareGovernmentWarningHeading(
     label: "Government warning heading",
     expected: REQUIRED_WARNING_HEADING,
     missingExplanation:
-      "The required government warning heading was not found reliably. A reviewer must confirm whether it is present.",
+      "The required government warning heading is absent from the label artwork.",
     uncertainExplanation:
       "The government warning heading could not be read reliably enough to verify its capitalization and punctuation.",
     mismatchExplanation:
@@ -110,7 +110,7 @@ export function compareGovernmentWarningBody(
     label: "Government warning statement",
     expected: REQUIRED_WARNING_BODY,
     missingExplanation:
-      "The required government warning statement was not found reliably. A reviewer must confirm whether it is present.",
+      "The required government warning statement is absent from the label artwork.",
     uncertainExplanation:
       "The government warning statement could not be read reliably enough for strict wording verification.",
     mismatchExplanation:

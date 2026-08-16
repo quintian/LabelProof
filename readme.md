@@ -1,537 +1,208 @@
 # LabelProof
 
-**AI-assisted alcohol beverage label verification**
+**AI-powered alcohol label verification, designed for human review.**
 
-LabelProof is a polished, human-in-the-loop prototype for comparing alcohol
-beverage label artwork with expected application data. It is being developed as
-a take-home demonstration of applied AI engineering for the U.S. Department of
-the Treasury.
+[Open the live prototype](https://labelproof-phi.vercel.app)
 
-The application extracts expected values from an application PDF, extracts
-observed values from its label artwork, applies field-specific verification
-rules, and presents the evidence to a reviewer. It does **not** approve or
-reject labels autonomously; the reviewer retains the final decision.
+LabelProof is a standalone take-home prototype for the U.S. Department of the
+Treasury. It compares an alcohol-beverage application PDF with label artwork,
+then presents a clear verification result for a reviewer to assess.
 
-> Project status: Phase 0 extraction spike and Phase 1 deterministic
-> verification are complete. Phase 2 now uses a playful two-screen experience:
-> a sample carousel plus guided upload screen, followed by a dominant machine
-> result plus reviewer-routing screen. Four prepared scenarios exercise Match,
-> Mismatch, and Needs Review through the same live analysis path. Detailed field
-> results remain available on demand.
+It is an AI-assisted verification tool—not an autonomous label-approval
+system. A person always makes the routing decision.
 
-## Source requirements
+## What the prototype demonstrates
 
-The project is based on the discovery notes and deliverables in the
-[Treasury take-home instructions](https://github.com/treasurytakehome-rgb/instructions/blob/main/README.md).
-The requirements are primarily embedded in stakeholder interviews rather than
-expressed as a formal specification.
+- Upload one application PDF, one front-label image, and one back-label image.
+  One additional PNG/JPEG label image is optional.
+- Or select one of five prepared scenarios: a complete match, alcohol-content
+  mismatch, warning-text mismatch, missing-warning case, or blurred-label case.
+- Extract structured observations from both document sources using the OpenAI
+  Responses API.
+- Compare the extracted fields with deterministic, field-specific rules.
+- Return one clear machine result: **Matched**, **Unmatched**, or **Needs
+  Review**.
+- Reveal the expected value, detected value, status, and explanation only when
+  the reviewer requests verification details.
+- Let the reviewer choose **Approve**, **Disapprove**, or **Manual Review**.
+- Handle uncertain evidence safely: uncertain or missing required evidence
+  never becomes a silent match.
 
-## Submission scope
+The prepared samples use the same upload, extraction, and verification path as
+the normal workflow; their outcomes are not hard-coded.
 
-The initial submission will prioritize one visually polished vertical slice:
+## Thirty-second walkthrough
 
-> Upload an application PDF and its label artwork, extract both with AI, compare
-> them with deterministic rules, and present an evidence-based review.
+1. Open the [live prototype](https://labelproof-phi.vercel.app).
+2. Choose a sample from the carousel, or upload an application PDF and label
+   artwork together.
+3. Select **Check Documents**. Analysis starts as soon as the documents are
+   ready, so the result screen can appear immediately.
+4. Review the large result, optionally open **View verification details**, and
+   make the final routing decision.
 
-LabelProof verifies a focused set of common fields across beer, wine, and
-distilled spirits. Prepared demonstrations emphasize distilled spirits and do
-not claim comprehensive beverage-specific regulatory coverage. Breadth will not
-come at the expense of a finished core experience.
+## Verification scope
 
-### In scope
-
-- Common alcohol beverage label fields, demonstrated primarily with distilled
-  spirits
-- Application PDF upload and AI-assisted extraction of expected values
-- Prepared application-and-label samples that exercise the real analysis path
-- Manual application entry as a secondary fallback and correction mechanism
-- One required front/brand label image
-- Up to two optional back/additional label images
-- PNG and JPEG label artwork
-- AI-assisted extraction of application and label fields
-- Verification of:
-  - brand name
-  - class/type designation
-  - alcohol by volume and proof
-  - net contents
-  - required government warning text and heading capitalization
-- Field-level `Pass`, `Mismatch`, and `Needs Review` results
-- Overall review status
-- Reviewer-selected workflow action, retained only for the active browser session
-- Expected and detected values shown side by side
-- Plain-language explanations and extracted evidence
-- Processing-time measurement
-- Prepared sample labels covering representative outcomes
-- Clear upload, validation, extraction, and API error states
-- Responsive and accessible interface
-- Publicly accessible deployed prototype
-- Automated tests for core verification rules
-- Setup, architecture, assumptions, and limitation documentation
-
-### Optional prototype enhancements
-
-These will be considered only after the submission MVP is stable:
-
-- Small batch workflow and results export
-- Additional image preprocessing
-- A larger 300-image batch demonstration
-
-### Explicitly out of scope
-
-These are not planned for this standalone take-home prototype:
-
-- Autonomous regulatory approval or rejection
-- Complete coverage of all TTB regulations and beverage-specific exceptions
-- Evidence bounding boxes
-- Producer/bottler name and address verification
-- Country-of-origin verification
-- Batch processing in the initial submission
-- Direct COLA integration
-- Federal authentication or identity integration
-- Persistent reviewer decisions, case records, or workflow submission
-- FedRAMP deployment or authorization work
-- Formal government records-retention implementation
-- Production-scale queues, infrastructure, and monitoring
-- Fully offline or locally hosted AI inference
-- Guaranteed interpretation of unreadable, severely distorted, or obscured labels
-
-## Requirements traceability
-
-This table distinguishes source requirements from implementation choices. A
-status of `Planned` does not claim that the feature has already been completed.
-
-| Stakeholder requirement | LabelProof response | Initial status |
-| --- | --- | --- |
-| Compare application information with label artwork | Extract both the application PDF and label artwork, then perform field-level verification | Planned |
-| Reduce routine manual checking | Direct reviewers to mismatches and uncertain fields | Planned |
-| Preserve human judgment and nuance | Three-state recommendations; reviewer makes the final decision | Planned |
-| Return results in approximately five seconds | Target a normal warm application-and-label review at about five seconds and display measured latency | Planned |
-| Be usable by nontechnical employees | One primary workflow, large controls, readable type, and plain language | Planned |
-| Accept reasonable textual variations | Apply field-specific normalization instead of generic exact matching | Planned |
-| Enforce strict warning-statement requirements | Deterministic wording, punctuation, and heading-capitalization checks | Planned |
-| Explain the result | Show expected value, detected value, evidence, status, and reason for every field | Planned |
-| Handle uncertain or unreadable images safely | Return `Needs Review` rather than guessing | Planned |
-| Support 200–300 application batches | Excluded from the initial submission; possible post-submission prototype enhancement | Not in initial MVP |
-| Demonstrate modernization potential | Use a provider-independent extraction boundary and testable rules | Planned |
-
-## Product workflow
-
-### 1. Supply the application
-
-The default workflow lets the reviewer upload an application PDF or choose a
-prepared sample. AI extracts:
-
-- beverage category
-- brand name
-- class/type designation
-- alcohol by volume and, when applicable, proof
-- net contents
-
-The reviewer can correct extracted values before verification. Manual entry is
-available as a secondary fallback, not the primary demonstration path.
-
-### 2. Upload label artwork
-
-The reviewer supplies a required front/brand label plus up to two optional
-back/additional labels. This allows the warning statement and other required
-fields to appear on different parts of the packaging without turning the MVP
-into a general multi-document workflow.
-
-### 3. Analyze the label
-
-The server validates the files, asks a multimodal model for separate structured
-application and label observations, validates the response, and applies
-deterministic field-specific comparison rules.
-
-### 4. Review evidence and discrepancies
-
-Every field displays:
-
-| Expected | Detected | Status | Explanation |
-| --- | --- | --- | --- |
-| Stone's Throw | STONE'S THROW | Pass | Capitalization normalized |
-| 45% Alc./Vol. | 40% ALC./VOL. | Mismatch | Alcohol content differs by 5 percentage points |
-| 750 mL | Unreadable | Needs Review | The image did not provide reliable evidence |
-
-The overall result is advisory. LabelProof does not make a legally binding
-decision.
-
-## Verification policies
-
-A single generic fuzzy-match score is not appropriate for all label fields.
-
-| Field | Planned comparison policy |
+| Field | Approach |
 | --- | --- |
-| Brand name | Normalize case, whitespace, Unicode, apostrophes, and nonmaterial punctuation; use conservative fuzzy matching only when needed |
-| Class/type | Normalize case and spacing; tolerate limited presentation differences while flagging materially different classifications |
-| Alcohol content | Parse numeric ABV and proof, compare normalized values, and verify their mathematical relationship |
-| Net contents | Parse quantity and unit and normalize equivalent measurements before comparison |
-| Government warning | Use strict wording and punctuation comparison, strict heading capitalization, and separate visual-format assessment |
+| Brand name | Normalizes case, whitespace, apostrophes, Unicode, and nonmaterial punctuation. |
+| Class/type | Normalizes presentation differences and flags material differences. |
+| Alcohol content | Parses ABV and proof, compares values, and checks their mathematical relationship. |
+| Net contents | Parses quantity and unit, then compares normalized units. |
+| Government warning | Applies stricter verbatim wording, punctuation, and heading-capitalization checks. |
 
-Boldness, physical type size, and real-world dimensions cannot always be proven
-from a digital photograph. The prototype will return `Needs Review` when those
-visual properties cannot be established reliably.
+An overall **Unmatched** result takes precedence when a definite discrepancy
+exists. **Needs Review** is used where evidence is unreadable, missing, or too
+uncertain for a safe determination.
 
-The required wording and formatting boundary follow TTB's official
-[Distilled Spirits Labeling: Health Warning Statement](https://www.ttb.gov/regulated-commodities/beverage-alcohol/distilled-spirits/ds-labeling-home/ds-health-warning).
-The deterministic rule ignores layout-only line wrapping but preserves strict
-case and punctuation. Boldness, physical type size, separation, and contrast
-are not claimed as automated passes in the MVP.
+## Product design
 
-## Visual design direction
+The interface deliberately avoids a technical dashboard or report-like
+workflow. It uses a small owl guide, large actions, short instructions, and an
+expand-on-demand evidence table so that nontechnical reviewers can focus on
+the decision rather than the implementation. The UI is designed to provide the best user experiences: 
 
-LabelProof should feel playful, calm, and immediately understandable rather
-than like a government report, technical dashboard, or implementation document.
+- Smooth pointer, touch, and keyboard carousel motion
+- One sample at a time, avoiding a crowded screen
+- Visible upload progress through the water vessel
+- Short guidance and large actions for nontechnical users
 
-- A polished owl guide uses short HTML speech bubbles to direct the next action
-- Large readable typography, generous spacing, and obvious click targets
-- Warm navy, teal, gold, cream, coral, and violet palette
-- One clear primary action on the submission screen
-- One prepared sample at a time with arrows, dots, and touch swipe support
-- One visually dominant machine result before any detailed fields
-- Technical details hidden from the normal user path
-- Restrained motion with reduced-motion support
-- Responsive behavior for desktop and smaller screens
+The machine result supports the review; it does not make decisions for humans. At the end, government reviewers alone select Approve, Disapprove, or Manual
+Review after examining the result and, when needed, the details.
 
-Prepared demonstrations include:
-
-1. a fully matching label
-2. an alcohol-content mismatch
-3. a government-warning problem
-4. an ambiguous or low-quality image that requires human review
-
-Each sample passes through the same extraction and verification path as a
-user upload; sample results will not be hard-coded.
-
-The submission screen contains only a sample carousel and one upload panel with
-application and label-artwork targets. Its primary action is `Compare documents`.
-The result screen contains only the machine result and routing decision. Field
-comparisons are hidden behind `View verification details`; model names, token
-counts, and extraction timing are not exposed to normal users.
-
-## Tool selection
-
-| Area | Selection | Reason |
-| --- | --- | --- |
-| Application framework | Next.js with TypeScript | One codebase for the interface and server API, reducing integration and deployment overhead |
-| Styling | Tailwind CSS | Rapid visual iteration and consistent responsive styling |
-| UI primitives | shadcn/ui | Accessible, professional primitives that remain easy to customize |
-| Forms | React Hook Form | Clear structured form state and validation feedback |
-| Runtime validation | Zod | Shared validation for form data, API payloads, and AI output |
-| AI integration | OpenAI Responses API | Multimodal image input with structured text output |
-| Initial model candidate | `gpt-5.6-luna` | Start with low or no reasoning for a bounded extraction task and the five-second latency target |
-| Quality fallback candidate | `gpt-5.6-terra` | Compare only if the initial candidate misses small warning text or confuses fields |
-| Client image preparation | Browser image resizing/compression | Keep the combined upload below the deployment limit before sending it to the server |
-| Verification engine | TypeScript rule modules | Deterministic, explainable, and independently testable comparisons |
-| Unit tests | Vitest | Fast tests for normalization, parsing, and verification rules |
-| Browser tests | One focused Playwright smoke test | Protect the primary upload-to-results path without building a comprehensive browser suite |
-| Deployment | Vercel | Low-friction deployment for the selected application stack |
-| Continuous integration | GitHub Actions | Run type checking, linting, tests, and production builds |
-
-The AI model performs visual extraction, not the final compliance decision. The
-extraction provider will sit behind an interface so it can be changed without
-rewriting the verification engine or user interface.
-
-One model will be selected before submission; the interface will not expose a
-model selector. Label images will use sufficient visual detail to read small
-text, while application PDFs will use a lower-cost detail setting when testing
-shows it is adequate. Warning text will be requested verbatim and responses will
-remain concise to reduce latency.
-
-### Deployment upload constraint
-
-Vercel Functions currently limit request and response bodies to 4.5 MB. The MVP
-will therefore enforce an approximately 3 MB combined limit for the application
-PDF and label artwork, show that limit before upload, and resize/compress label
-images in the browser. Prepared samples will remain below the same limit. Direct
-object-storage uploads are unnecessary for this submission. See the official
-[Vercel Functions limits](https://vercel.com/docs/functions/limitations#request-body-size).
-
-The OpenAI Responses API accepts PDFs as file inputs and supplies both extracted
-text and page images to vision-capable models. See the official
-[OpenAI file-input documentation](https://developers.openai.com/api/docs/guides/file-inputs)
-and [Structured Outputs guide](https://developers.openai.com/api/docs/guides/structured-outputs).
-
-## Proposed architecture
+## Architecture
 
 ```mermaid
-flowchart TD
-    A[Reviewer browser] --> B[Application PDF and label artwork]
-    B --> C[Next.js server route]
-    C --> D[File validation]
-    D --> E[Multimodal extraction adapter]
-    E --> F[Validated application and label observations]
-    F --> G[Field-specific verification rules]
-    G --> H[Pass / Mismatch / Needs Review]
-    H --> I[Evidence-based review interface]
+flowchart LR
+  A[Application PDF + label images] --> B[Next.js API route]
+  B --> C[OpenAI structured multimodal extraction]
+  C --> D[Zod contract validation]
+  D --> E[Deterministic field-specific verification]
+  E --> F[Matched / Unmatched / Needs Review]
+  F --> G[Human routing decision]
 ```
 
-Proposed source organization:
+The extraction model observes the documents; it does not make the final
+compliance decision. Its structured response is validated before the
+verification engine uses it. Keeping extraction and verification separate
+makes the rules explainable, testable, and replaceable independently of the AI
+provider.
 
-```text
-src/
-  app/
-    api/analyze/
-    review/
-  components/
-    application-upload/
-    application-editor/
-    label-preview/
-    label-upload/
-    review-results/
-    sample-selector/
-  lib/
-    contracts/
-      extraction.ts
-      verification.ts
-    ai/
-      extractor.ts
-      openai-extractor.ts
-      extraction-schema.ts
-    image/
-      prepare-image.ts
-    verification/
-      brand.ts
-      class-type.ts
-      alcohol-content.ts
-      net-contents.ts
-      warning.ts
-      overall-result.ts
-    samples/
-  types/
-  tests/
-docs/
-  SCOPE.md
-  ARCHITECTURE.md
+### Technology choices
+
+| Area | Selection | Why |
+| --- | --- | --- |
+| Web application | Next.js + TypeScript | One deployable application with a responsive interface and server API. |
+| AI extraction | OpenAI Responses API | Reads the application PDF and label images into one structured extraction contract. |
+| Extraction model | `gpt-5.6-luna` | Selected for the MVP because it produced correct results on the prepared label cases and is positioned for cost-sensitive, high-volume workloads. |
+| Validation | Zod | Treats AI output as untrusted input and enforces a canonical schema. |
+| Verification | TypeScript rule modules | Makes comparisons deterministic, explainable, and unit-testable. |
+| Test runner | Vitest | Fast coverage for parsing, normalization, comparison, contracts, and overall status. |
+| Deployment | Vercel | Simple public deployment for this self-contained demonstration. |
+
+### Model selection
+
+`gpt-5.6-luna` is the submitted prototype's extraction model. It produced
+correct results on the prepared cases and was selected over Terra after the
+same complete-match fixture passed on both models but took 7.78 seconds on a
+warm Luna run and 9.47 seconds on one Terra run. This is a small benchmark,
+not a general latency guarantee.
+
+## Run locally
+
+### Prerequisites
+
+- Node.js 24 or later
+- An OpenAI API key with access to the configured extraction model
+
+### Setup
+
+```bash
+git clone https://github.com/quintian/LabelProof.git
+cd LabelProof
+npm install
+cp .env.example .env.local
 ```
 
-## Core contracts
+Set the following server-side value in `.env.local`:
 
-Application observations, label observations, and verification decisions will
-remain separate.
-
-```ts
-type ExtractedField<T> = {
-  value: T | null;
-  verbatimText: string | null;
-  readability: "clear" | "uncertain" | "not_found";
-  source:
-    | "application_pdf"
-    | "reviewer_input"
-    | "front_label"
-    | "back_label"
-    | "additional_label"
-    | "none";
-};
-
-type DocumentExtraction = {
-  application: {
-    beverageCategory: ExtractedField<"beer" | "wine" | "distilled_spirits">;
-    brandName: ExtractedField<string>;
-    fancifulName: ExtractedField<string>;
-    classType: ExtractedField<string>;
-    alcoholByVolume: ExtractedField<number>;
-    proof: ExtractedField<number>;
-    netContents: ExtractedField<{ amount: number; unit: string }>;
-  };
-  label: {
-    brandName: ExtractedField<string>;
-    fancifulName: ExtractedField<string>;
-    classType: ExtractedField<string>;
-    alcoholByVolume: ExtractedField<number>;
-    proof: ExtractedField<number>;
-    netContents: ExtractedField<{ amount: number; unit: string }>;
-    governmentWarningHeading: ExtractedField<string>;
-    governmentWarningBody: ExtractedField<string>;
-  };
-};
-
-type FieldResult = {
-  field: VerificationField;
-  label: string;
-  expected: {
-    displayValue: string | null;
-    evidence: ApplicationEvidence | null;
-  };
-  detected: {
-    displayValue: string | null;
-    evidence: LabelEvidence | null;
-  };
-  status: "pass" | "mismatch" | "needs_review";
-  explanation: string;
-};
+```bash
+OPENAI_API_KEY=your_key_here
 ```
 
-Model-reported confidence is intentionally excluded because it is not a
-calibrated probability. `uncertain` and required `not_found` observations will
-never silently become a pass; the verification engine converts them to `Needs
-Review`. The executable Zod schemas in `src/lib/contracts/` are the source of
-truth; the abbreviated types above explain their boundaries.
+Optional model override:
 
-## Implementation plan
+```bash
+OPENAI_EXTRACTION_MODEL=gpt-5.6-luna
+```
 
-### Phase 0: Model and latency spike
+The override exists only for controlled local evaluation; a different model
+should not be substituted without rerunning the prepared-sample checks.
 
-- Obtain or create the four representative application-and-label cases
-- Send the application PDF and label artwork to `gpt-5.6-luna`
-- Validate structured output and verbatim warning extraction
-- Measure warm end-to-end latency
-- Compare `gpt-5.6-terra` only if the initial candidate is unreliable
-- Select one model and reasoning setting for the submission
+Then start the app:
 
-**Exit condition:** representative documents can be extracted reliably enough
-for the intended demonstration. Adjust scope before UI investment if warning
-extraction or latency is unacceptable.
+```bash
+npm run dev
+```
 
-#### Phase 0 result — complete-match sample
+Open [http://localhost:3000](http://localhost:3000).
 
-On August 11, 2026, `gpt-5.6-luna` extracted the synthetic application PDF,
-front label, and back label with low PDF detail, high image detail, and no
-reasoning tokens.
+Never commit `.env.local` or an API key. Vercel production uses the same key
+as a sensitive environment variable named `OPENAI_API_KEY`.
 
-| Trial | Input cache | Extraction checks | API latency |
-| --- | --- | ---: | ---: |
-| Initial | Cache write | 17/17 after correcting the benchmark boundary | 11.95 s |
-| Warm repeat | 7,095 cached input tokens | 17/17 | 7.78 s |
+## Quality checks
 
-The warning heading and full warning body were reproduced verbatim, including
-capitalization, numbered clauses, and punctuation. The initial benchmark had
-incorrectly expected the abstract value `distilled_spirits` to appear on the
-label itself; the label correctly contained the more specific class/type text,
-so label-only beverage category inference is not scored.
+```bash
+npm run lint
+npm run typecheck
+npm run test
+npm run build
+```
 
-The extraction quality supports retaining `gpt-5.6-luna` for the MVP. The warm
-latency remains above the approximately five-second stakeholder goal, so the UI
-will show meaningful progress and latency will be revisited after the complete
-vertical slice is measured. A second model is not justified by extraction
-quality at this stage.
+The test suite covers the extraction/verification contracts and the core
+comparison rules, including normalization, ABV/proof, net contents,
+government-warning checks, uncertainty, and overall-status precedence.
 
-### Phase 1: Contracts and deterministic verification
+## Operational boundaries and limitations
 
-**Progress:** Core extraction and verification-result contracts are complete
-and covered by strict schema tests. Brand-name and class/type normalization and
-comparison are also complete. ABV/proof parsing, range validation, comparison,
-and relationship checks are complete. Net-content parsing, unit conversion, and
-comparison are complete. Strict government-warning heading and body checks are
-complete. Overall-status precedence, field-summary counts, optional-proof
-handling, and the complete deterministic verification pipeline are complete.
+This is a focused prototype, not a production TTB system.
 
-**Phase status: Complete.** The complete-match fixture produces seven field
-passes; definite discrepancies take precedence in the overall result, while
-uncertainty produces `Needs Review` when no definite mismatch exists.
+- It covers a selected set of common alcohol-label fields and does not claim
+  complete TTB regulatory coverage or beverage-specific exception handling.
+- It accepts a PDF application and up to three label images, with a combined
+  3 MB upload limit for the Vercel prototype.
+- The application, front label, and back label are all required before analysis
+  begins. An incomplete upload is blocked on the submission screen.
+- In the single-picker prototype, the first selected image is treated as the
+  front label and the second as the back label.
+- The model may be slow or unable to read poor-quality, distorted, or obscured
+  artwork. Those cases should be routed to **Needs Review**.
+- Warning wording and heading capitalization can be checked from document
+  evidence. Physical type size, boldness, contrast, placement, and other
+  real-world formatting properties still require human review.
+- A reviewer decision is a demonstration-only browser-session interaction; it
+  is not stored as a case record or sent to an external workflow.
+- Uploaded documents are processed for the request; this prototype does not
+  implement persistent document storage or a records-retention system.
 
-- Define separate application, label, and result schemas
-- Implement brand-name normalization
-- Implement class/type comparison
-- Parse and compare ABV and proof
-- Parse and normalize net-content units
-- Verify government-warning wording, punctuation, and heading capitalization
-- Derive the overall three-state result
-- Add unit tests for matching, mismatching, and ambiguous cases
+The following are intentionally not part of this standalone demo: COLA
+integration, federal authentication, FedRAMP authorization, production records
+management, production monitoring/queues, and a full batch-processing system.
+They are not deferred deliverables for this project.
 
-**Exit condition:** matching, mismatching, missing, and unreadable observations
-produce correct and explainable results without depending on an AI service.
+## Future extensions
 
-### Phase 2: Polished vertical slice
+If this prototype moved beyond the take-home context, the next priorities
+would be a dedicated OCR and layout-extraction adapter, an approved enterprise
+extraction provider or local model option, representative-label evaluation,
+accessibility research with reviewers, and a batch workflow with a manifest,
+progressive results, recovery, and export. A dedicated OCR adapter could add
+word-level locations and image-preprocessing controls while keeping the
+field-specific verification engine unchanged. Those features are deliberately
+excluded from the current MVP to keep its single-review flow reliable and
+polished.
 
-**Progress:** The responsive two-screen interface, four-scenario Civic Oak
-carousel, application PDF upload, multi-image label upload, file-type validation,
-accessible feedback, owl guidance, and primary comparison action are implemented.
-The live endpoint sends the PDF at
-low detail and up to three label images at high detail to `gpt-5.6-luna`,
-validates structured output with the canonical contracts, runs deterministic
-verification, and returns field evidence plus measured latency. The interface
-stops after 32 seconds client-side, presents one dominant result, reveals field
-details on request, maps the recommendation to one of three visibly connected
-routing choices, and supports starting a new review.
+## Source requirement context
 
-The production build, no-token API validation path, and prepared-sample browser
-success path pass. The first integrated browser run reached the results view in
-approximately two to three seconds in the local development environment. This
-is an observed prototype result, not a production latency guarantee.
-
-The normal workflow does not display implementation metadata or require an
-intermediate extraction-confirmation form. The existing deterministic
-`/api/verify` route and correction component remain available in the codebase
-for a future optional edit flow, but they are not part of the streamlined demo.
-
-- Scaffold and style the Next.js application
-- Add application PDF upload, prepared samples, and manual correction
-- Add required front-label and optional back/additional-label uploads
-- Enforce combined upload size and client-side image compression
-- Connect the live structured extraction endpoint
-- Validate model output with Zod
-- Complete image tabs, zoom, and label preview
-- Add clear analysis progress and skeleton states
-- Present expected and detected values in accessible result cards
-- Display expandable verbatim evidence and plain-language explanations
-- Add retry and recovery for expected failure modes
-- Verify responsive behavior and keyboard accessibility
-- Refine transitions and visual hierarchy
-
-**Exit condition:** each prepared case travels through the real extraction and
-verification path, and the complete workflow is understandable without
-instruction.
-
-### Phase 3: Hardening and delivery
-
-- Repeat the four prepared cases and record latency
-- Run verification unit tests and a focused browser smoke test
-- Validate file types, size limits, and error recovery
-- Confirm the API credential never reaches the browser
-- Test the production build and public deployment
-- Test the deployed workflow in another browser
-- Complete setup instructions, screenshots, assumptions, and limitations
-- Capture a short fallback demonstration recording
-- Perform one focused reviewer revision pass
-
-**Exit condition:** the public link, repository, and prepared demonstration are
-stable and reproducible.
-
-## Delivery priorities
-
-If time becomes constrained, work will be reduced in this order:
-
-1. Keep the single-application review workflow reliable.
-2. Keep the verification rules correct and explainable.
-3. Keep the application-PDF plus multi-label vertical slice visually polished.
-4. Keep deployment and prepared samples reliable.
-5. Reduce optional fields or sample count if necessary.
-6. Do not add batch processing until the submission MVP is stable.
-
-## Assumptions and limitations
-
-- The default path extracts expected application values from a PDF; prepared
-  samples and manual correction keep the demonstration accessible.
-- One application may include one required front label and up to two optional
-  back/additional labels.
-- Only fields exposed by the application form are evaluated.
-- The system assists a reviewer and does not make a legally binding decision.
-- Normalization and comparison policies are field-specific.
-- The five-second target applies to a normal application-and-label request after
-  the service is warm, and actual latency will be measured rather than assumed.
-- Warning wording and heading capitalization can be checked deterministically;
-  physical type size and some visual formatting may require human review.
-- Model output is treated as untrusted input and validated before use.
-- Readability describes observed evidence and is not presented as a calibrated
-  model-confidence probability.
-- The combined upload is limited to approximately 3 MB for the initial Vercel
-  deployment.
-- The prototype does not claim comprehensive TTB compliance.
-
-## Future README updates
-
-This README intentionally preserves planning decisions during development.
-Before submission it will be rewritten as an evaluator-facing project page and
-will no longer lead with planning status, long planned-feature lists, or
-implementation phases. The final structure will prioritize:
-
-- live application URL
-- screenshot and thirty-second workflow
-- implemented features
-- architecture and AI/verification design
-- finalized setup and run commands
-- environment-variable documentation
-- test commands and current results
-- measured latency on representative labels
-- design decisions, final tradeoffs, and known limitations
+This project was designed in response to the stakeholder interviews and
+deliverables in the [Treasury take-home instructions](https://github.com/treasurytakehome-rgb/instructions/blob/main/README.md).
