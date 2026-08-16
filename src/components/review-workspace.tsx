@@ -166,7 +166,7 @@ function KeyedOwlVideo({ success }: { success: boolean }) {
         loop={success}
         aria-hidden="true"
       >
-        <source src={success ? "/success-owl.mp4" : "/pointing-owl.mp4"} type="video/mp4" />
+        <source src={success ? "/ui/success.mp4" : "/ui/pointing.mp4"} type="video/mp4" />
       </video>
       <canvas ref={canvasRef} className="owl-video-canvas" aria-label="Animated LabelProof owl guide" />
     </>
@@ -263,7 +263,7 @@ function ResultScreen({
                   playsInline
                   onLoadedMetadata={(event) => { event.currentTarget.playbackRate = 0.6; }}
                 >
-                  <source src="/document-crossing-transparent.webm" type="video/webm" />
+                  <source src="/ui/document-crossing-transparent.webm" type="video/webm" />
                 </video>
               </div>
               {!resultReady ? <p className="result-progress-copy">Carefully checking the application and label…</p> : null}
