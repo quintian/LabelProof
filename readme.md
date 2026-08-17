@@ -41,6 +41,35 @@ the normal workflow; their outcomes are not hard-coded.
 4. Review the large result, optionally open **View verification details**, and
    make the final routing decision.
 
+## Demo
+
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="demo/demo-p1.png" alt="LabelProof sample carousel and document-upload screen" />
+      <br />
+      <sub>Choose a prepared scenario or upload documents.</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="demo/demo-p2.png" alt="LabelProof selected sample with the filled document vessel and Check Documents action" />
+      <br />
+      <sub>Documents are ready for comparison.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="demo/demo-p3.png" alt="LabelProof matched result and three human routing choices" />
+      <br />
+      <sub>The result is clear; the reviewer still makes the decision.</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="demo/demo-p4.png" alt="LabelProof unmatched result with expanded verification details and recorded reviewer decision" />
+      <br />
+      <sub>Field-level evidence is available on demand.</sub>
+    </td>
+  </tr>
+</table>
+
 ## Verification scope
 
 | Field | Approach |
